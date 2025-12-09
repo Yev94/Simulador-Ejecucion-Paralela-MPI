@@ -1,0 +1,1911 @@
+<!DOCTYPE html>
+<html lang="es">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>MPI Password Cracker - 3D Simulation v2</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <style>
+      @import url("https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;700&family=Orbitron:wght@400;700;900&display=swap");
+
+      * {
+        margin: 0;
+        padding: 0;
+        box-sizing: border-box;
+      }
+
+      body {
+        font-family: "JetBrains Mono", monospace;
+        background: #0a0a0f;
+        color: #e0e0e0;
+        overflow: hidden;
+        height: 100vh;
+      }
+
+      #container {
+        position: relative;
+        width: 100%;
+        height: 100vh;
+      }
+
+      #canvas-container {
+        position: absolute;
+        top: 0;
+        left: 0;
+        width: 100%;
+        height: 100%;
+        z-index: 1;
+        cursor: grab;
+      }
+
+      #canvas-container:active {
+        cursor: grabbing;
+      }
+
+      .ui-overlay {
+        position: absolute;
+        z-index: 10;
+        pointer-events: none;
+      }
+
+      .ui-overlay > * {
+        pointer-events: auto;
+      }
+
+      /* Header */
+      .header {
+        top: 0;
+        left: 0;
+        right: 0;
+        padding: 15px 25px;
+        background: linear-gradient(
+          180deg,
+          rgba(10, 10, 15, 0.95) 0%,
+          transparent 100%
+        );
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+      }
+
+      .logo {
+        font-family: "Orbitron", sans-serif;
+        font-size: 1.3rem;
+        font-weight: 900;
+        background: linear-gradient(135deg, #00ffaa, #00aaff, #ff00aa);
+        -webkit-background-clip: text;
+        -webkit-text-fill-color: transparent;
+        letter-spacing: 3px;
+      }
+
+      .camera-hint {
+        font-size: 0.65rem;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .status-badge {
+        padding: 6px 14px;
+        border-radius: 20px;
+        font-size: 0.7rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        border: 1px solid;
+      }
+
+      .status-badge.idle {
+        background: rgba(100, 100, 100, 0.2);
+        border-color: #666;
+        color: #888;
+      }
+
+      .status-badge.running {
+        background: rgba(0, 255, 170, 0.15);
+        border-color: #00ffaa;
+        color: #00ffaa;
+        animation: pulse 1.5s ease-in-out infinite;
+      }
+
+      .status-badge.found {
+        background: rgba(255, 215, 0, 0.15);
+        border-color: #ffd700;
+        color: #ffd700;
+        animation: glow 0.5s ease-in-out infinite;
+      }
+
+      @keyframes pulse {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.6;
+        }
+      }
+
+      @keyframes glow {
+        0%,
+        100% {
+          box-shadow: 0 0 10px rgba(255, 215, 0, 0.5);
+        }
+        50% {
+          box-shadow: 0 0 25px rgba(255, 215, 0, 0.8);
+        }
+      }
+
+      /* Control Panel */
+      .control-panel {
+        top: 70px;
+        left: 15px;
+        width: 280px;
+      }
+
+      .panel {
+        background: rgba(15, 15, 25, 0.92);
+        border: 1px solid rgba(0, 255, 170, 0.2);
+        border-radius: 10px;
+        padding: 15px;
+        margin-bottom: 12px;
+        backdrop-filter: blur(10px);
+      }
+
+      .panel-title {
+        font-family: "Orbitron", sans-serif;
+        font-size: 0.65rem;
+        color: #00ffaa;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        margin-bottom: 12px;
+        padding-bottom: 8px;
+        border-bottom: 1px solid rgba(0, 255, 170, 0.2);
+      }
+
+      .control-group {
+        margin-bottom: 12px;
+      }
+
+      .control-label {
+        display: block;
+        font-size: 0.65rem;
+        color: #888;
+        margin-bottom: 6px;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .control-input {
+        width: 100%;
+        padding: 8px 12px;
+        background: rgba(0, 0, 0, 0.4);
+        border: 1px solid rgba(0, 255, 170, 0.3);
+        border-radius: 5px;
+        color: #fff;
+        font-family: "JetBrains Mono", monospace;
+        font-size: 0.85rem;
+        transition: all 0.3s ease;
+      }
+
+      .control-input:focus {
+        outline: none;
+        border-color: #00ffaa;
+        box-shadow: 0 0 15px rgba(0, 255, 170, 0.2);
+      }
+
+      .slider-container {
+        display: flex;
+        align-items: center;
+        gap: 10px;
+      }
+
+      .slider {
+        flex: 1;
+        -webkit-appearance: none;
+        height: 5px;
+        border-radius: 3px;
+        background: rgba(0, 255, 170, 0.2);
+        outline: none;
+      }
+
+      .slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        width: 16px;
+        height: 16px;
+        border-radius: 50%;
+        background: #00ffaa;
+        cursor: pointer;
+        box-shadow: 0 0 10px rgba(0, 255, 170, 0.5);
+      }
+
+      .slider-value {
+        min-width: 28px;
+        text-align: center;
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: #00ffaa;
+      }
+
+      .btn {
+        width: 100%;
+        padding: 10px 16px;
+        border: none;
+        border-radius: 6px;
+        font-family: "Orbitron", sans-serif;
+        font-size: 0.75rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 2px;
+        cursor: pointer;
+        transition: all 0.3s ease;
+      }
+
+      .btn-primary {
+        background: linear-gradient(135deg, #00ffaa, #00cc88);
+        color: #0a0a0f;
+      }
+
+      .btn-primary:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 5px 25px rgba(0, 255, 170, 0.4);
+      }
+
+      .btn-primary:disabled {
+        background: #333;
+        color: #666;
+        cursor: not-allowed;
+        transform: none;
+        box-shadow: none;
+      }
+
+      .btn-secondary {
+        background: transparent;
+        border: 1px solid #ff5555;
+        color: #ff5555;
+        margin-top: 8px;
+      }
+
+      .btn-secondary:hover {
+        background: rgba(255, 85, 85, 0.1);
+      }
+
+      /* Stats Panel */
+      .stats-panel {
+        top: 70px;
+        right: 15px;
+        width: 260px;
+      }
+
+      .stat-row {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 8px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+      }
+
+      .stat-row:last-child {
+        border-bottom: none;
+      }
+
+      .stat-label {
+        font-size: 0.7rem;
+        color: #666;
+        text-transform: uppercase;
+        letter-spacing: 1px;
+      }
+
+      .stat-value {
+        font-size: 0.9rem;
+        font-weight: 700;
+        color: #fff;
+      }
+
+      .stat-value.highlight {
+        color: #00ffaa;
+      }
+
+      .stat-value.warning {
+        color: #ffd700;
+      }
+
+      /* Process Monitor */
+      .process-monitor {
+        bottom: 15px;
+        left: 15px;
+        right: 15px;
+      }
+
+      .process-grid {
+        display: grid;
+        grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
+        gap: 8px;
+        max-height: 180px;
+        overflow-y: auto;
+        padding-right: 8px;
+      }
+
+      .process-grid::-webkit-scrollbar {
+        width: 4px;
+      }
+
+      .process-grid::-webkit-scrollbar-track {
+        background: rgba(0, 0, 0, 0.3);
+      }
+
+      .process-grid::-webkit-scrollbar-thumb {
+        background: #00ffaa;
+        border-radius: 2px;
+      }
+
+      .process-card {
+        background: rgba(20, 20, 35, 0.9);
+        border: 1px solid rgba(0, 255, 170, 0.15);
+        border-radius: 6px;
+        padding: 10px;
+        transition: all 0.3s ease;
+      }
+
+      .process-card.active {
+        border-color: #00ffaa;
+        box-shadow: 0 0 12px rgba(0, 255, 170, 0.2);
+      }
+
+      .process-card.found {
+        border-color: #ffd700;
+        background: rgba(255, 215, 0, 0.1);
+        animation: cardGlow 0.5s ease-in-out infinite;
+      }
+
+      @keyframes cardGlow {
+        0%,
+        100% {
+          box-shadow: 0 0 12px rgba(255, 215, 0, 0.3);
+        }
+        50% {
+          box-shadow: 0 0 25px rgba(255, 215, 0, 0.6);
+        }
+      }
+
+      .process-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 6px;
+      }
+
+      .process-rank {
+        font-family: "Orbitron", sans-serif;
+        font-size: 0.7rem;
+        font-weight: 700;
+      }
+
+      .process-status {
+        width: 8px;
+        height: 8px;
+        border-radius: 50%;
+        background: #333;
+      }
+
+      .process-status.working {
+        background: #00ffaa;
+        animation: blink 0.5s ease-in-out infinite;
+      }
+
+      .process-status.found {
+        background: #ffd700;
+      }
+
+      @keyframes blink {
+        0%,
+        100% {
+          opacity: 1;
+        }
+        50% {
+          opacity: 0.3;
+        }
+      }
+
+      .process-current {
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: #fff;
+        font-family: "JetBrains Mono", monospace;
+        margin-bottom: 3px;
+        letter-spacing: 2px;
+      }
+
+      .process-attempts {
+        font-size: 0.6rem;
+        color: #666;
+      }
+
+      .progress-bar {
+        height: 3px;
+        background: rgba(255, 255, 255, 0.1);
+        border-radius: 2px;
+        margin-top: 6px;
+        overflow: hidden;
+      }
+
+      .progress-fill {
+        height: 100%;
+        background: linear-gradient(90deg, #00ffaa, #00aaff);
+        border-radius: 2px;
+        transition: width 0.1s ease;
+      }
+
+      /* Legend */
+      .legend {
+        position: absolute;
+        bottom: 210px;
+        right: 15px;
+        z-index: 10;
+      }
+
+      .legend-item {
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        margin-bottom: 6px;
+        font-size: 0.7rem;
+        color: #888;
+      }
+
+      .legend-color {
+        width: 10px;
+        height: 10px;
+        border-radius: 3px;
+      }
+
+      /* Password Display */
+      .password-display {
+        position: absolute;
+        top: 50%;
+        left: 50%;
+        transform: translate(-50%, -50%);
+        z-index: 5;
+        text-align: center;
+        pointer-events: none;
+      }
+
+      .target-label {
+        font-size: 0.65rem;
+        color: #555;
+        text-transform: uppercase;
+        letter-spacing: 3px;
+        margin-bottom: 8px;
+      }
+
+      .target-password {
+        font-family: "Orbitron", sans-serif;
+        font-size: 2.5rem;
+        font-weight: 900;
+        color: #fff;
+        text-shadow: 0 0 30px rgba(255, 255, 255, 0.3);
+        letter-spacing: 12px;
+      }
+
+      .target-hash {
+        font-size: 0.65rem;
+        color: #444;
+        margin-top: 8px;
+        word-break: break-all;
+        max-width: 350px;
+      }
+
+      .found-message {
+        margin-top: 15px;
+        font-family: "Orbitron", sans-serif;
+        font-size: 1rem;
+        color: #ffd700;
+        text-transform: uppercase;
+        letter-spacing: 4px;
+        opacity: 0;
+        transition: opacity 0.5s ease;
+      }
+
+      .found-message.visible {
+        opacity: 1;
+        animation: foundPulse 1s ease-in-out infinite;
+      }
+
+      @keyframes foundPulse {
+        0%,
+        100% {
+          text-shadow: 0 0 20px rgba(255, 215, 0, 0.5);
+        }
+        50% {
+          text-shadow: 0 0 40px rgba(255, 215, 0, 0.8);
+        }
+      }
+
+      .found-time {
+        font-size: 1rem;
+        color: #00ffaa;
+        margin-top: 5px;
+        font-family: "JetBrains Mono", monospace;
+        letter-spacing: 2px;
+        text-shadow: 0 0 10px rgba(0, 255, 170, 0.5);
+      }
+
+      /* Data Packet Log */
+      .packet-log {
+        position: absolute;
+        top: 70px;
+        left: 50%;
+        transform: translateX(-50%);
+        z-index: 10;
+        width: 350px;
+        max-height: 150px;
+        overflow: hidden;
+      }
+
+      .packet-log .panel {
+        padding: 10px 15px;
+      }
+
+      .packet-list {
+        max-height: 100px;
+        overflow-y: auto;
+        font-size: 0.7rem;
+      }
+
+      .packet-list::-webkit-scrollbar {
+        width: 3px;
+      }
+
+      .packet-list::-webkit-scrollbar-thumb {
+        background: #ff00aa;
+        border-radius: 2px;
+      }
+
+      .packet-entry {
+        padding: 4px 0;
+        border-bottom: 1px solid rgba(255, 255, 255, 0.05);
+        display: flex;
+        align-items: center;
+        gap: 8px;
+        animation: slideIn 0.3s ease;
+      }
+
+      @keyframes slideIn {
+        from {
+          opacity: 0;
+          transform: translateY(-10px);
+        }
+        to {
+          opacity: 1;
+          transform: translateY(0);
+        }
+      }
+
+      .packet-type {
+        padding: 2px 6px;
+        border-radius: 3px;
+        font-size: 0.6rem;
+        font-weight: 700;
+        text-transform: uppercase;
+      }
+
+      .packet-type.send {
+        background: rgba(255, 0, 170, 0.2);
+        color: #ff00aa;
+      }
+
+      .packet-type.recv {
+        background: rgba(0, 170, 255, 0.2);
+        color: #00aaff;
+      }
+
+      .packet-type.reduce {
+        background: rgba(255, 215, 0, 0.2);
+        color: #ffd700;
+      }
+
+      .packet-type.allreduce {
+        background: rgba(0, 255, 170, 0.2);
+        color: #00ffaa;
+      }
+
+      .packet-from,
+      .packet-to {
+        color: #888;
+      }
+
+      .packet-data {
+        color: #fff;
+        font-family: "JetBrains Mono", monospace;
+        background: rgba(0, 0, 0, 0.3);
+        background: rgba(0, 0, 0, 0.3);
+        padding: 2px 6px;
+        border-radius: 3px;
+      }
+
+      /* History Chart */
+      .history-chart {
+        display: flex;
+        align-items: flex-end;
+        justify-content: flex-start;
+        gap: 4px;
+        height: 60px;
+        margin-top: 10px;
+        padding-top: 10px;
+        border-top: 1px solid rgba(255, 255, 255, 0.1);
+      }
+
+      .history-bar-container {
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        width: 12px;
+        height: 100%;
+        justify-content: flex-end;
+        position: relative;
+        group: hover;
+      }
+
+      .history-bar {
+        width: 100%;
+        background: #00ffaa;
+        border-radius: 2px 2px 0 0;
+        transition: height 0.3s ease;
+        min-height: 2px;
+        opacity: 0.7;
+      }
+      
+      .history-bar:hover {
+        opacity: 1;
+        box-shadow: 0 0 5px #00ffaa;
+      }
+
+      .history-value {
+        font-size: 0.5rem;
+        color: #888;
+        margin-top: 2px;
+        display: none;
+        position: absolute;
+        bottom: -15px;
+        white-space: nowrap;
+      }
+
+      .history-bar-container:hover .history-value {
+        display: block;
+        color: #fff;
+        z-index: 20;
+      }
+    </style>
+  </head>
+  <body>
+    <div id="container">
+      <div id="canvas-container"></div>
+
+      <!-- Header -->
+      <div class="ui-overlay header">
+        <div>
+          <div class="logo">MPI SIMULATOR</div>
+          <div class="camera-hint">🖱️ Arrastrar: rotar | Scroll: zoom</div>
+        </div>
+        <div class="status-badge idle" id="status-badge">Idle</div>
+      </div>
+
+      <!-- Packet Log -->
+      <div class="packet-log">
+        <div class="panel">
+          <div class="panel-title">📦 Paquetes MPI</div>
+          <div class="packet-list" id="packet-list"></div>
+        </div>
+      </div>
+
+      <!-- Control Panel -->
+      <div class="ui-overlay control-panel">
+        <div class="panel">
+          <div class="panel-title">⚙️ Configuración</div>
+
+          <div class="control-group">
+            <label class="control-label">Contraseña objetivo</label>
+            <input
+              type="text"
+              class="control-input"
+              id="target-password"
+              value="z9"
+              maxlength="4"
+              placeholder="Ej: ab12"
+            />
+          </div>
+
+          <div class="control-group">
+            <label class="control-label">Procesos MPI (world_size)</label>
+            <div class="slider-container">
+              <input
+                type="range"
+                class="slider"
+                id="process-count"
+                min="2"
+                max="12"
+                value="4"
+              />
+              <span class="slider-value" id="process-count-value">4</span>
+            </div>
+          </div>
+
+          <div class="control-group">
+            <label class="control-label">Velocidad</label>
+            <div class="slider-container">
+              <input
+                type="range"
+                class="slider"
+                id="sim-speed"
+                min="1"
+                max="100"
+                value="30"
+              />
+              <span class="slider-value" id="sim-speed-value">30</span>
+            </div>
+          </div>
+
+          <button class="btn btn-primary" id="start-btn">▶ Iniciar</button>
+          <button class="btn btn-secondary" id="stop-btn" style="display: none">
+            ■ Detener
+          </button>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">📖 Algoritmo MPI</div>
+          <div style="font-size: 0.7rem; color: #777; line-height: 1.5">
+            <p style="margin-bottom: 6px">
+              <code style="color: #00aaff">rank</code> = ID del proceso
+            </p>
+            <p style="margin-bottom: 6px">
+              <code style="color: #00ffaa">idx = rank + i*size</code>
+            </p>
+            <p style="margin-bottom: 6px; color: #ff00aa">
+              MPI_Allreduce → sincroniza "encontrado" MPI_Allreduce →
+              sincroniza "encontrado"
+            </p>
+            <p style="color: #ffd700">MPI_Reduce → recolecta intentos</p>
+          </div>
+        </div>
+      </div>
+
+      <!-- Stats Panel -->
+      <div class="ui-overlay stats-panel">
+        <div class="panel">
+          <div class="panel-title">📊 Estadísticas</div>
+
+          <div class="stat-row">
+            <span class="stat-label">Espacio (62^len)</span>
+            <span class="stat-value" id="total-space">3,844</span>
+          </div>
+
+          <div class="stat-row">
+            <span class="stat-label">Intentos totales</span>
+            <span class="stat-value highlight" id="total-attempts">0</span>
+          </div>
+
+          <div class="stat-row">
+            <span class="stat-label">Tiempo</span>
+            <span class="stat-value" id="elapsed-time">0.000s</span>
+          </div>
+
+          <div class="stat-row">
+            <span class="stat-label">Intentos/seg</span>
+            <span class="stat-value" id="attempts-per-sec">0</span>
+          </div>
+
+          <div class="stat-row">
+            <span class="stat-label">Progreso</span>
+            <span class="stat-value warning" id="progress">0.00%</span>
+          </div>
+        </div>
+
+        <div class="panel">
+          <div class="panel-title">🕒 Historial Tiempos</div>
+          <div class="history-chart" id="history-chart">
+              <div style="font-size: 0.6rem; color: #666; width: 100%; text-align: center; margin-top: 20px;">Sin datos</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Password Display -->
+      <div class="password-display">
+        <div class="target-label">Objetivo</div>
+        <div class="target-password" id="display-target">z9</div>
+        <div class="target-hash" id="display-hash">Hash: calculando...</div>
+        <div class="found-message" id="found-message">
+          <div>¡Contraseña Encontrada!</div>
+          <div class="found-time" id="found-time"></div>
+        </div>
+      </div>
+
+      <!-- Legend -->
+      <div class="legend">
+        <div class="panel" style="padding: 12px">
+          <div class="panel-title" style="margin-bottom: 8px">Leyenda</div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #00aaff"></div>
+            <span>Master (rank 0)</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #00ffaa"></div>
+            <span>Worker activo</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #ffd700"></div>
+            <span>Encontrado</span>
+          </div>
+          <div class="legend-item">
+            <div class="legend-color" style="background: #ff00aa"></div>
+            <span>Paquete MPI</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Process Monitor -->
+      <div class="ui-overlay process-monitor">
+        <div class="panel">
+          <div class="panel-title">🖥️ Procesos MPI</div>
+          <div class="process-grid" id="process-grid"></div>
+        </div>
+      </div>
+    </div>
+
+    <script>
+      // Dictionary (same as C++ code)
+      const Dictionary =
+        "0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ";
+
+      // Simple hash function
+      function hashString(str) {
+        let hash = 0;
+        for (let i = 0; i < str.length; i++) {
+          const char = str.charCodeAt(i);
+          hash = (hash << 5) - hash + char;
+          hash = hash & hash;
+        }
+        return hash;
+      }
+
+      // Convert index to password
+      function indexToPassword(index, length) {
+        let pass = "";
+        for (let i = 0; i < length; i++) {
+          pass = Dictionary[index % 62] + pass;
+          index = Math.floor(index / 62);
+        }
+        return pass;
+      }
+
+      // Calculate total space
+      function totalSpace(length) {
+        return Math.pow(62, length);
+      }
+
+      // Three.js Setup
+      let scene, camera, renderer;
+      let processCubes = [];
+      let masterNode;
+      let dataPackets = [];
+      let communicationRings = [];
+
+      // Camera control variables
+      let isDragging = false;
+      let previousMousePosition = { x: 0, y: 0 };
+      let cameraAngleX = 0;
+      let cameraAngleY = 0.3;
+      let cameraDistance = 20;
+
+      // Process colors
+      const processColors = [
+        0x00aaff, 0x00ffaa, 0xff00aa, 0xffaa00, 0xaa00ff, 0xff5500, 0x00ff55,
+        0x5500ff, 0xff0055, 0x55ff00, 0x0055ff, 0xaaff55,
+      ];
+
+      function initThreeJS() {
+        const container = document.getElementById("canvas-container");
+
+        scene = new THREE.Scene();
+        scene.background = new THREE.Color(0x080810);
+        scene.fog = new THREE.FogExp2(0x080810, 0.02);
+
+        camera = new THREE.PerspectiveCamera(
+          55,
+          window.innerWidth / window.innerHeight,
+          0.1,
+          1000
+        );
+        updateCameraPosition();
+
+        renderer = new THREE.WebGLRenderer({ antialias: true });
+        renderer.setSize(window.innerWidth, window.innerHeight);
+        renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+        container.appendChild(renderer.domElement);
+
+        // Lighting
+        const ambientLight = new THREE.AmbientLight(0x404060, 0.4);
+        scene.add(ambientLight);
+
+        const pointLight1 = new THREE.PointLight(0x00ffaa, 1.2, 60);
+        pointLight1.position.set(15, 15, 15);
+        scene.add(pointLight1);
+
+        const pointLight2 = new THREE.PointLight(0xff00aa, 0.8, 60);
+        pointLight2.position.set(-15, 10, -15);
+        scene.add(pointLight2);
+
+        const pointLight3 = new THREE.PointLight(0x00aaff, 0.6, 50);
+        pointLight3.position.set(0, -10, 0);
+        scene.add(pointLight3);
+
+        // Grid floor
+        const gridHelper = new THREE.GridHelper(40, 40, 0x00ffaa, 0x151525);
+        gridHelper.position.y = -4;
+        scene.add(gridHelper);
+
+        // Create central platform
+        const platformGeometry = new THREE.CylinderGeometry(3, 3.5, 0.5, 32);
+        const platformMaterial = new THREE.MeshPhongMaterial({
+          color: 0x151525,
+          emissive: 0x00aaff,
+          emissiveIntensity: 0.1,
+          transparent: true,
+          opacity: 0.8,
+        });
+        const platform = new THREE.Mesh(platformGeometry, platformMaterial);
+        platform.position.y = -3.5;
+        scene.add(platform);
+
+        // Create master node (rank 0)
+        createMasterNode();
+
+        // Create starfield background
+        createStarfield();
+
+        // Mouse controls
+        container.addEventListener("mousedown", onMouseDown);
+        container.addEventListener("mousemove", onMouseMove);
+        container.addEventListener("mouseup", onMouseUp);
+        container.addEventListener("mouseleave", onMouseUp);
+        container.addEventListener("wheel", onMouseWheel);
+
+        // Touch controls for mobile
+        container.addEventListener("touchstart", onTouchStart);
+        container.addEventListener("touchmove", onTouchMove);
+        container.addEventListener("touchend", onTouchEnd);
+
+        window.addEventListener("resize", onWindowResize);
+      }
+
+      function createMasterNode() {
+        // Main octahedron
+        const geometry = new THREE.OctahedronGeometry(1.5, 0);
+        const material = new THREE.MeshPhongMaterial({
+          color: 0x00aaff,
+          emissive: 0x00aaff,
+          emissiveIntensity: 0.4,
+          transparent: true,
+          opacity: 0.9,
+          flatShading: true,
+        });
+        masterNode = new THREE.Mesh(geometry, material);
+        masterNode.position.set(0, 0, 0);
+        scene.add(masterNode);
+
+        // Inner glow
+        const glowGeometry = new THREE.OctahedronGeometry(1.8, 0);
+        const glowMaterial = new THREE.MeshBasicMaterial({
+          color: 0x00aaff,
+          transparent: true,
+          opacity: 0.15,
+          wireframe: true,
+        });
+        const glowMesh = new THREE.Mesh(glowGeometry, glowMaterial);
+        masterNode.add(glowMesh);
+
+        // Outer ring
+        const ringGeometry = new THREE.TorusGeometry(2.5, 0.05, 16, 64);
+        const ringMaterial = new THREE.MeshBasicMaterial({
+          color: 0x00aaff,
+          transparent: true,
+          opacity: 0.5,
+        });
+        const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+        ring.rotation.x = Math.PI / 2;
+        masterNode.add(ring);
+
+        // Label
+        addLabel(masterNode, "MASTER\nrank=0", 0x00aaff);
+      }
+
+      function addLabel(parent, text, color) {
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        canvas.width = 256;
+        canvas.height = 128;
+
+        context.fillStyle = "transparent";
+        context.fillRect(0, 0, canvas.width, canvas.height);
+
+        context.font = "bold 28px Orbitron, sans-serif";
+        context.fillStyle = "#" + color.toString(16).padStart(6, "0");
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+
+        const lines = text.split("\n");
+        lines.forEach((line, i) => {
+          context.fillText(line, canvas.width / 2, 40 + i * 35);
+        });
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({
+          map: texture,
+          transparent: true,
+        });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(3, 1.5, 1);
+        sprite.position.y = 3;
+        parent.add(sprite);
+      }
+
+      function createStarfield() {
+        const starsGeometry = new THREE.BufferGeometry();
+        const starPositions = [];
+
+        for (let i = 0; i < 2000; i++) {
+          const x = (Math.random() - 0.5) * 200;
+          const y = (Math.random() - 0.5) * 200;
+          const z = (Math.random() - 0.5) * 200;
+          starPositions.push(x, y, z);
+        }
+
+        starsGeometry.setAttribute(
+          "position",
+          new THREE.Float32BufferAttribute(starPositions, 3)
+        );
+
+        const starsMaterial = new THREE.PointsMaterial({
+          color: 0xffffff,
+          size: 0.1,
+          transparent: true,
+          opacity: 0.6,
+        });
+
+        const starField = new THREE.Points(starsGeometry, starsMaterial);
+        scene.add(starField);
+      }
+
+      function createProcessCubes(count) {
+        // Remove existing cubes
+        processCubes.forEach((cube) => {
+          scene.remove(cube);
+        });
+        processCubes = [];
+
+        // Remove existing rings
+        communicationRings.forEach((ring) => scene.remove(ring));
+        communicationRings = [];
+
+        const radius = 8;
+
+        for (let i = 0; i < count; i++) {
+          const angle = (i / count) * Math.PI * 2 - Math.PI / 2;
+          const x = Math.cos(angle) * radius;
+          const z = Math.sin(angle) * radius;
+
+          // Create process cube
+          const geometry = new THREE.BoxGeometry(1.2, 1.2, 1.2);
+          const color = processColors[i % processColors.length];
+          const material = new THREE.MeshPhongMaterial({
+            color: color,
+            emissive: color,
+            emissiveIntensity: 0.2,
+            transparent: true,
+            opacity: 0.9,
+          });
+
+          const cube = new THREE.Mesh(geometry, material);
+          cube.position.set(x, 0, z);
+          cube.userData = {
+            baseColor: color,
+            rank: i,
+            active: false,
+            angle: angle,
+          };
+
+          // Add wireframe
+          const wireGeometry = new THREE.BoxGeometry(1.4, 1.4, 1.4);
+          const wireMaterial = new THREE.MeshBasicMaterial({
+            color: color,
+            wireframe: true,
+            transparent: true,
+            opacity: 0.3,
+          });
+          const wireframe = new THREE.Mesh(wireGeometry, wireMaterial);
+          cube.add(wireframe);
+
+          // Add label
+          addProcessLabel(cube, i, color);
+
+          scene.add(cube);
+          processCubes.push(cube);
+
+          // Create communication ring
+          const ringGeometry = new THREE.TorusGeometry(radius, 0.03, 8, 64);
+          const ringMaterial = new THREE.MeshBasicMaterial({
+            color: 0xff00aa,
+            transparent: true,
+            opacity: 0,
+          });
+          const ring = new THREE.Mesh(ringGeometry, ringMaterial);
+          ring.rotation.x = Math.PI / 2;
+          ring.position.y = 0;
+          scene.add(ring);
+          communicationRings.push(ring);
+        }
+      }
+
+      function addProcessLabel(cube, rank, color) {
+        const canvas = document.createElement("canvas");
+        const context = canvas.getContext("2d");
+        canvas.width = 128;
+        canvas.height = 64;
+
+        context.font = "bold 24px Orbitron, sans-serif";
+        context.fillStyle = "#" + color.toString(16).padStart(6, "0");
+        context.textAlign = "center";
+        context.textBaseline = "middle";
+        context.fillText(`P${rank}`, canvas.width / 2, canvas.height / 2);
+
+        const texture = new THREE.CanvasTexture(canvas);
+        const spriteMaterial = new THREE.SpriteMaterial({
+          map: texture,
+          transparent: true,
+        });
+        const sprite = new THREE.Sprite(spriteMaterial);
+        sprite.scale.set(1.5, 0.75, 1);
+        sprite.position.y = 1.8;
+        cube.add(sprite);
+      }
+
+      // Data packet class
+      class DataPacket {
+        constructor(from, to, data, type, color) {
+          this.from = from;
+          this.to = to;
+          this.data = data;
+          this.type = type;
+          this.progress = 0;
+          this.speed = 0.03;
+          this.alive = true;
+
+          // Create visual
+          const geometry = new THREE.SphereGeometry(0.25, 8, 8);
+          const material = new THREE.MeshBasicMaterial({
+            color: color || 0xff00aa,
+            transparent: true,
+            opacity: 0.9,
+          });
+          this.mesh = new THREE.Mesh(geometry, material);
+
+          // Add glow
+          const glowGeometry = new THREE.SphereGeometry(0.4, 8, 8);
+          const glowMaterial = new THREE.MeshBasicMaterial({
+            color: color || 0xff00aa,
+            transparent: true,
+            opacity: 0.3,
+          });
+          const glow = new THREE.Mesh(glowGeometry, glowMaterial);
+          this.mesh.add(glow);
+
+          // Create trail
+          this.trail = [];
+          this.trailMeshes = [];
+
+          scene.add(this.mesh);
+
+          scene.add(this.mesh);
+          
+          // Log packet removed from here - moved to sendDataPacket to use Ranks instead of Positions
+        }
+
+        update() {
+          if (!this.alive) return;
+
+          this.progress += this.speed;
+
+          if (this.progress >= 1) {
+            this.alive = false;
+            scene.remove(this.mesh);
+            this.trailMeshes.forEach((t) => scene.remove(t));
+            return;
+          }
+
+          // Calculate position
+          const fromPos = this.from.clone();
+          const toPos = this.to.clone();
+
+          // Add arc
+          const midPoint = fromPos.clone().add(toPos).multiplyScalar(0.5);
+          midPoint.y += 3;
+
+          // Bezier curve
+          const t = this.progress;
+          const pos = new THREE.Vector3();
+          pos.x =
+            Math.pow(1 - t, 2) * fromPos.x +
+            2 * (1 - t) * t * midPoint.x +
+            Math.pow(t, 2) * toPos.x;
+          pos.y =
+            Math.pow(1 - t, 2) * fromPos.y +
+            2 * (1 - t) * t * midPoint.y +
+            Math.pow(t, 2) * toPos.y;
+          pos.z =
+            Math.pow(1 - t, 2) * fromPos.z +
+            2 * (1 - t) * t * midPoint.z +
+            Math.pow(t, 2) * toPos.z;
+
+          this.mesh.position.copy(pos);
+
+          // Update trail
+          this.trail.push(pos.clone());
+          if (this.trail.length > 15) {
+            this.trail.shift();
+            if (this.trailMeshes.length > 0) {
+              scene.remove(this.trailMeshes.shift());
+            }
+          }
+
+          // Create trail particle
+          const trailGeometry = new THREE.SphereGeometry(0.1, 4, 4);
+          const trailMaterial = new THREE.MeshBasicMaterial({
+            color: this.mesh.material.color,
+            transparent: true,
+            opacity: 0.3,
+          });
+          const trailMesh = new THREE.Mesh(trailGeometry, trailMaterial);
+          trailMesh.position.copy(pos);
+          scene.add(trailMesh);
+          this.trailMeshes.push(trailMesh);
+        }
+      }
+
+      function sendDataPacket(fromRank, toRank, data, type) {
+        let fromPos, toPos;
+
+        if (fromRank === "master" || fromRank === 0) {
+          fromPos = masterNode.position.clone();
+        } else {
+          fromPos = processCubes[fromRank].position.clone();
+        }
+
+        if (toRank === "master" || toRank === 0) {
+          toPos = masterNode.position.clone();
+        } else {
+          toPos = processCubes[toRank].position.clone();
+        }
+
+        let color = 0xff00aa;
+        if (type === "ALLREDUCE") color = 0x00ffaa;
+        else if (type === "REDUCE") color = 0xffd700;
+        else if (type === "RECV") color = 0x00aaff;
+
+        const packet = new DataPacket(fromPos, toPos, data, type, color);
+        dataPackets.push(packet);
+
+        // Correctly log using Ranks
+        logPacket(type, fromRank, toRank, data);
+      }
+
+      function logPacket(type, from, to, data) {
+        const list = document.getElementById("packet-list");
+        const entry = document.createElement("div");
+        entry.className = "packet-entry";
+
+        let typeClass = "send";
+        if (type === "ALLREDUCE") typeClass = "allreduce";
+        else if (type === "REDUCE") typeClass = "reduce";
+        else if (type === "RECV") typeClass = "recv";
+
+        const getLabel = (r) => {
+            if (r === "ALL") return "ALL";
+            if (r === 0 || r === "master") return "M";
+            return `P${r}`;
+        };
+
+        const fromLabel = getLabel(from);
+        const toLabel = getLabel(to);
+
+        entry.innerHTML = `
+                <span class="packet-type ${typeClass}">${type}</span>
+                <span class="packet-from">${fromLabel}→${toLabel}</span>
+                <span class="packet-data">${data}</span>
+            `;
+
+        list.insertBefore(entry, list.firstChild);
+
+        // Limit entries
+        while (list.children.length > 20) {
+          list.removeChild(list.lastChild);
+        }
+      }
+
+      // Mouse controls
+      function onMouseDown(event) {
+        isDragging = true;
+        previousMousePosition = {
+          x: event.clientX,
+          y: event.clientY,
+        };
+      }
+
+      function onMouseMove(event) {
+        if (!isDragging) return;
+
+        const deltaMove = {
+          x: event.clientX - previousMousePosition.x,
+          y: event.clientY - previousMousePosition.y,
+        };
+
+        cameraAngleX -= deltaMove.x * 0.005;
+        cameraAngleY += deltaMove.y * 0.005;
+
+        // Limit vertical angle
+        cameraAngleY = Math.max(
+          -Math.PI / 3,
+          Math.min(Math.PI / 3, cameraAngleY)
+        );
+
+        updateCameraPosition();
+
+        previousMousePosition = {
+          x: event.clientX,
+          y: event.clientY,
+        };
+      }
+
+      function onMouseUp() {
+        isDragging = false;
+      }
+
+      function onMouseWheel(event) {
+        cameraDistance += event.deltaY * 0.02;
+        cameraDistance = Math.max(8, Math.min(40, cameraDistance));
+        updateCameraPosition();
+      }
+
+      // Touch controls
+      let lastTouchDistance = 0;
+
+      function onTouchStart(event) {
+        if (event.touches.length === 1) {
+          isDragging = true;
+          previousMousePosition = {
+            x: event.touches[0].clientX,
+            y: event.touches[0].clientY,
+          };
+        } else if (event.touches.length === 2) {
+          lastTouchDistance = Math.hypot(
+            event.touches[0].clientX - event.touches[1].clientX,
+            event.touches[0].clientY - event.touches[1].clientY
+          );
+        }
+      }
+
+      function onTouchMove(event) {
+        event.preventDefault();
+
+        if (event.touches.length === 1 && isDragging) {
+          const deltaMove = {
+            x: event.touches[0].clientX - previousMousePosition.x,
+            y: event.touches[0].clientY - previousMousePosition.y,
+          };
+
+          cameraAngleX -= deltaMove.x * 0.005;
+          cameraAngleY += deltaMove.y * 0.005;
+          cameraAngleY = Math.max(
+            -Math.PI / 3,
+            Math.min(Math.PI / 3, cameraAngleY)
+          );
+
+          updateCameraPosition();
+
+          previousMousePosition = {
+            x: event.touches[0].clientX,
+            y: event.touches[0].clientY,
+          };
+        } else if (event.touches.length === 2) {
+          const currentDistance = Math.hypot(
+            event.touches[0].clientX - event.touches[1].clientX,
+            event.touches[0].clientY - event.touches[1].clientY
+          );
+
+          const delta = lastTouchDistance - currentDistance;
+          cameraDistance += delta * 0.05;
+          cameraDistance = Math.max(8, Math.min(40, cameraDistance));
+
+          updateCameraPosition();
+          lastTouchDistance = currentDistance;
+        }
+      }
+
+      function onTouchEnd() {
+        isDragging = false;
+      }
+
+      function updateCameraPosition() {
+        camera.position.x =
+          Math.sin(cameraAngleX) * Math.cos(cameraAngleY) * cameraDistance;
+        camera.position.y = Math.sin(cameraAngleY) * cameraDistance + 5;
+        camera.position.z =
+          Math.cos(cameraAngleX) * Math.cos(cameraAngleY) * cameraDistance;
+        camera.lookAt(0, 0, 0);
+      }
+
+      function onWindowResize() {
+        camera.aspect = window.innerWidth / window.innerHeight;
+        camera.updateProjectionMatrix();
+        renderer.setSize(window.innerWidth, window.innerHeight);
+      }
+
+      // Animation
+      let animationId;
+      let time = 0;
+      let lastTime = performance.now();
+
+      function animate() {
+        const now = performance.now();
+        const dt = (now - lastTime) / 1000; // Delta time in seconds
+        lastTime = now;
+
+        animationId = requestAnimationFrame(animate);
+        time += dt;
+
+        // Rotate master node
+        if (masterNode) {
+          masterNode.rotation.y += 0.008;
+          masterNode.rotation.x = Math.sin(time * 0.5) * 0.1;
+        }
+
+        // Animate process cubes
+        processCubes.forEach((cube, i) => {
+          cube.rotation.y += 0.015;
+
+          // Floating effect
+          cube.position.y = Math.sin(time * 2 + i * 0.5) * 0.2;
+
+          if (cube.userData.active) {
+            cube.scale.setScalar(1.1 + Math.sin(time * 8) * 0.1);
+            cube.material.emissiveIntensity = 0.4 + Math.sin(time * 8) * 0.2;
+          } else {
+            cube.scale.setScalar(1);
+            cube.material.emissiveIntensity = 0.2;
+          }
+        });
+
+        // Update data packets
+        dataPackets = dataPackets.filter((packet) => {
+          packet.update();
+          return packet.alive;
+        });
+
+        // Animate communication rings
+        // Update communication rings
+        communicationRings.forEach((ring, i) => {
+          ring.rotation.z += 0.01;
+          if (ring.material.opacity > 0) {
+            ring.material.opacity -= 0.01;
+          }
+        });
+
+        // Run simulation step (if running)
+        // Run simulation step (if running)
+        simulationStep(dt);
+
+        renderer.render(scene, camera);
+      }
+
+      // Simulation State
+      let isRunning = false;
+      let simulationInterval;
+      let processes = [];
+      let startTime;
+      let totalAttempts = 0;
+      let foundProcess = -1;
+      let stepCounter = 0;
+      // History state
+      let executionTimes = [];
+
+      function initProcessGrid(count) {
+        const grid = document.getElementById("process-grid");
+        grid.innerHTML = "";
+        processes = [];
+
+        for (let i = 0; i < count; i++) {
+          const card = document.createElement("div");
+          card.className = "process-card";
+          card.id = `process-${i}`;
+
+          const colorHex =
+            "#" +
+            processColors[i % processColors.length]
+              .toString(16)
+              .padStart(6, "0");
+
+          card.innerHTML = `
+                    <div class="process-header">
+                        <span class="process-rank" style="color: ${colorHex};">
+                            ${i === 0 ? "◆ MASTER" : "■ WORKER"} #${i}
+                        </span>
+                        <div class="process-status" id="status-${i}"></div>
+                    </div>
+                    <div class="process-current" id="current-${i}">----</div>
+                    <div class="process-attempts" id="attempts-${i}">idx=${i} | intentos: 0</div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" id="progress-${i}" style="width: 0%"></div>
+                    </div>
+                `;
+          grid.appendChild(card);
+
+          processes.push({
+            rank: i,
+            currentIndex: i,
+            attempts: 0,
+            found: false,
+            currentPassword: "",
+          });
+        }
+      }
+
+      function updateStats() {
+        const elapsed = (Date.now() - startTime) / 1000;
+        const target = document.getElementById("target-password").value || "z9";
+        const space = totalSpace(target.length);
+
+        document.getElementById("total-attempts").textContent =
+          totalAttempts.toLocaleString();
+        document.getElementById("elapsed-time").textContent =
+          elapsed.toFixed(3) + "s";
+        document.getElementById("attempts-per-sec").textContent =
+          elapsed > 0
+            ? Math.round(totalAttempts / elapsed).toLocaleString()
+            : "0";
+        document.getElementById("progress").textContent =
+          ((totalAttempts / space) * 100).toFixed(2) + "%";
+      }
+
+      function flashCommunicationRings() {
+        communicationRings.forEach((ring) => {
+          ring.material.opacity = 0.8;
+        });
+      }
+
+      function simulationStep(dt) {
+        if (!isRunning) return;
+        
+        // Fallback if dt is undefined/NaN (first frame)
+        if (!dt || dt > 0.1) dt = 0.016; 
+
+
+        const target = document.getElementById("target-password").value || "z9";
+        const targetHash = hashString(target);
+        const processCount = processes.length;
+        const space = totalSpace(target.length);
+        const speed = parseInt(document.getElementById("sim-speed").value);
+        // Speed control: 1 = 1 attempt/sec. Max = very fast.
+        // We use a logarithmic or exponential scale for better control
+        // Slider 1 -> 1 attempt/sec
+        // Slider 30 -> ~100 attempts/sec
+        // Slider 100 -> ~10000 attempts/sec (max throughput)
+        
+        let attemptsPerSecond;
+        if (speed <= 10) {
+            attemptsPerSecond = speed; // 1 to 10
+        } else {
+             // Scale up faster after 10
+             attemptsPerSecond = Math.pow(speed - 9, 2.5); 
+        }
+
+        // Accumulate time
+        if (!window.simAccumulator) window.simAccumulator = 0;
+        // Assume 60fps, we add 1/60s (approx 16ms) each call, OR use actual delta
+        // animate() calls this roughly every 16ms
+        // But simulationStep is called manually? No, wait, simulationStep is called 
+        // We need to know delta time. simulationStep relies on animate providing context or being called periodically.
+        // The original code called simulationStep() inside animate()? 
+        // Let's check where simulationStep is called.
+        // It is NOT called in animate() in the original code logic presented?
+        // Wait, I need to check where `simulationStep` is called. It was likely added to animate() or a setInterval.
+        // Looking at the file content... 
+        
+        // Let's use a global delta time approach.
+        // Since we are inside the function, we can't easily change the call signature to pass dt without changing the caller.
+        // Let's assume this function is called once per frame (1/60th second).
+        
+        window.simAccumulator += dt; // Use real delta time
+        
+        
+        const stepsToTake = Math.floor(window.simAccumulator * attemptsPerSecond);
+        
+        if (stepsToTake > 0) {
+            window.simAccumulator -= (stepsToTake / attemptsPerSecond);
+        }
+
+        let foundThisTick = false;
+
+        for (let step = 0; step < stepsToTake && !foundThisTick; step++) {
+          processes.forEach((proc, i) => {
+            if (proc.found || proc.currentIndex >= space) return;
+
+            const password = indexToPassword(proc.currentIndex, target.length);
+            proc.currentPassword = password;
+            proc.attempts++;
+            totalAttempts++;
+
+            // Update UI
+            document.getElementById(`current-${i}`).textContent = password;
+            document.getElementById(`attempts-${i}`).textContent = `idx=${
+              proc.currentIndex
+            } | intentos: ${proc.attempts.toLocaleString()}`;
+            document.getElementById(`progress-${i}`).style.width = `${
+              (proc.currentIndex / space) * 100
+            }%`;
+
+            // Activate cube
+            processCubes[i].userData.active = true;
+            document.getElementById(`status-${i}`).className =
+              "process-status working";
+            document.getElementById(`process-${i}`).classList.add("active");
+
+            // Check if found (Verify both hash and actual string to avoid collisions)
+            if (hashString(password) === targetHash && password === target) {
+              proc.found = true;
+              foundThisTick = true;
+              foundProcess = i;
+
+              // Visual feedback
+              document
+                .getElementById(`process-${i}`)
+                .classList.remove("active");
+              document.getElementById(`process-${i}`).classList.add("found");
+              document
+                .getElementById(`status-${i}`)
+                .classList.remove("working");
+              document.getElementById(`status-${i}`).classList.add("found");
+
+              processCubes[i].material.color.setHex(0xffd700);
+              processCubes[i].material.emissive.setHex(0xffd700);
+
+              // Send found notification to all (MPI_Allreduce simulation)
+              flashCommunicationRings();
+
+              setTimeout(() => {
+                for (let j = 0; j < processCount; j++) {
+                  if (j !== i) {
+                    sendDataPacket(i, j, `found=1`, "ALLREDUCE");
+                  }
+                }
+              }, 100);
+
+              // Send password to master (MPI_Send)
+              setTimeout(() => {
+                if (i !== 0) {
+                  sendDataPacket(i, 0, `"${password}"`, "SEND");
+                }
+              }, 500);
+
+              // Send attempts to master (MPI_Reduce)
+              setTimeout(() => {
+                for (let j = 1; j < processCount; j++) {
+                  sendDataPacket(
+                    j,
+                    0,
+                    `att=${processes[j].attempts}`,
+                    "REDUCE"
+                  );
+                }
+              }, 900);
+
+              // Stop simulation
+              setTimeout(() => {
+                stopSimulation(true);
+              }, 1500);
+
+              return;
+            }
+
+            // Move to next index (MPI stride pattern)
+            proc.currentIndex += processCount;
+          });
+        }
+
+        // Periodic MPI communication visualization (every 50 steps)
+// Periodic MPI communication visualization REMOVED for realism
+        // (MPI processes do not communicate during calculation loop)
+
+        updateStats();
+      }
+
+      function startSimulation() {
+        const target = document.getElementById("target-password").value || "z9";
+        const processCount = parseInt(
+          document.getElementById("process-count").value
+        );
+
+        // Validate input
+        if (target.length < 1 || target.length > 4) {
+          alert("La contraseña debe tener entre 1 y 4 caracteres");
+          return;
+        }
+
+        for (let char of target) {
+          if (!Dictionary.includes(char)) {
+            alert(`CarÃ¡cter invÃ¡lido: "${char}". Use solo: ${Dictionary}`);
+            return;
+          }
+        }
+
+        // Clear packet log
+        document.getElementById("packet-list").innerHTML = "";
+
+        // Update display
+        document.getElementById("display-target").textContent = target;
+        document.getElementById(
+          "display-hash"
+        ).textContent = `Hash: ${hashString(target)}`;
+        document.getElementById("total-space").textContent = totalSpace(
+          target.length
+        ).toLocaleString();
+        document.getElementById("found-message").classList.remove("visible");
+
+        // Reset state
+        isRunning = true;
+        totalAttempts = 0;
+        foundProcess = -1;
+        stepCounter = 0;
+        startTime = Date.now();
+
+        // Clear old packets
+        dataPackets.forEach((p) => {
+          scene.remove(p.mesh);
+          p.trailMeshes.forEach((t) => scene.remove(t));
+        });
+        dataPackets = [];
+
+        // Update UI
+        document.getElementById("status-badge").className =
+          "status-badge running";
+        document.getElementById("status-badge").textContent = "Ejecutando";
+        document.getElementById("start-btn").disabled = true;
+        document.getElementById("stop-btn").style.display = "block";
+
+        // Initialize
+        createProcessCubes(processCount);
+        initProcessGrid(processCount);
+
+        // Show MPI_Init communication
+        logPacket("INIT", "ALL", "ALL", "MPI_Init()");
+        setTimeout(() => {
+          for (let i = 1; i < processCount; i++) {
+            sendDataPacket(0, i, `size=${processCount}`, "SEND");
+          }
+        }, 200);
+
+        // Start simulation loop
+        // simulationInterval = setInterval(simulationStep, interval); // Removed: using animate loop for timing
+      }
+
+      function stopSimulation(found = false) {
+        isRunning = false;
+        // clearInterval(simulationInterval); // Removed: using animate loop
+
+
+        // Update UI
+        document.getElementById("status-badge").className = found
+          ? "status-badge found"
+          : "status-badge idle";
+        document.getElementById("status-badge").textContent = found
+          ? "¡Encontrada!"
+          : "Detenido";
+        document.getElementById("start-btn").disabled = false;
+        document.getElementById("stop-btn").style.display = "none";
+
+        if (found) {
+          const elapsed = (Date.now() - startTime) / 1000;
+          document.getElementById("found-time").textContent = `TIEMPO: ${elapsed.toFixed(3)}s`;
+          document.getElementById("found-message").classList.add("visible");
+          
+          // Add to history
+          executionTimes.push(elapsed);
+          updateHistoryGraph();
+        }
+
+        // Reset cube states
+        processCubes.forEach((cube, i) => {
+          cube.userData.active = false;
+          document.getElementById(`status-${i}`).classList.remove("working");
+          document.getElementById(`process-${i}`).classList.remove("active");
+        });
+
+        // Log finalize
+        setTimeout(() => {
+          logPacket("FINALIZE", "ALL", "ALL", "MPI_Finalize()");
+        }, 500);
+      }
+
+      // Event Listeners
+      document
+        .getElementById("start-btn")
+        .addEventListener("click", startSimulation);
+      document
+        .getElementById("stop-btn")
+        .addEventListener("click", () => stopSimulation(false));
+
+      document
+        .getElementById("process-count")
+        .addEventListener("input", (e) => {
+          document.getElementById("process-count-value").textContent =
+            e.target.value;
+        });
+
+      document.getElementById("sim-speed").addEventListener("input", (e) => {
+        document.getElementById("sim-speed-value").textContent = e.target.value;
+        // Interval logic removed, handled in simulationStep via accumulator
+      });
+
+      document
+        .getElementById("target-password")
+        .addEventListener("input", (e) => {
+          const target = e.target.value;
+          document.getElementById("display-target").textContent =
+            target || "----";
+          if (target) {
+            document.getElementById(
+              "display-hash"
+            ).textContent = `Hash: ${hashString(target)}`;
+            document.getElementById("total-space").textContent = totalSpace(
+              target.length
+            ).toLocaleString();
+          }
+        });
+
+      function updateHistoryGraph() {
+        if (executionTimes.length === 0) return;
+
+        const container = document.getElementById("history-chart");
+        container.innerHTML = "";
+
+        const maxTime = Math.max(...executionTimes);
+        // Keep last 15 executions
+        const recentTimes = executionTimes.slice(-15);
+
+        recentTimes.forEach(time => {
+            const heightPercent = Math.max(5, (time / maxTime) * 100);
+            
+            const barContainer = document.createElement("div");
+            barContainer.className = "history-bar-container";
+            
+            barContainer.innerHTML = `
+                <div class="history-bar" style="height: ${heightPercent}%"></div>
+                <div class="history-value">${time.toFixed(1)}s</div>
+            `;
+            container.appendChild(barContainer);
+        });
+      }
+
+      // Initialize
+      initThreeJS();
+      createProcessCubes(4);
+      initProcessGrid(4);
+      animate();
+
+      // Initial hash display
+      const initialTarget = document.getElementById("target-password").value;
+      document.getElementById("display-hash").textContent = `Hash: ${hashString(
+        initialTarget
+      )}`;
+      document.getElementById("total-space").textContent = totalSpace(
+        initialTarget.length
+      ).toLocaleString();
+    </script>
+  </body>
+</html>
